@@ -108,6 +108,25 @@ app.post("/webhook", line.middleware(config), async (req, res) => {
       const content = gptReply.data.choices[0].message.content.trim();
       console.log("GPTからの返答:", content);
 
+if (content.includes("スキップ")) {
+  session.step++;
+
+  if (session.step < freeQuestions.length) {
+    await client.replyMessage(event.replyToken, {
+      type: "text",
+      text: freeQuestions[session.step],
+    });
+  } else {
+    const level = Math.min(10, Math.max(1, Math.floor((session.freeScore / 35) * 10)));
+    await client.replyMessage(event.replyToken, {
+      type: "text",
+      text: `診断完了！あなたの自己肯定感レベルは10段階中「レベル${level}」です。\n\n再診断したい場合は「再診断」と入力してください。`,
+    });
+  }
+
+  return; // スコア処理せず終了
+}
+
       const match = content.match(/\d+/);
       const score = match ? parseInt(match[0]) : 0;
 
