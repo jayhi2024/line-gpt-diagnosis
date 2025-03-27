@@ -1,4 +1,3 @@
-<script>
 const express = require("express");
 const { Configuration, OpenAIApi } = require("openai");
 const line = require("@line/bot-sdk");
@@ -47,4 +46,3 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on ${PORT}`);
 });
-</script>
