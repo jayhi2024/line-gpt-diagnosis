@@ -4,7 +4,6 @@ const line = require("@line/bot-sdk");
 require("dotenv").config();
 
 const app = express();
-app.use(express.json());
 
 const config = {
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
@@ -27,7 +26,7 @@ const freeQuestions = [
 
 const sessions = {};
 
-app.post("/webhook", line.middleware(config), async (req, res) => {
+app.post("/webhook", line.middleware(config), express.json(), async (req, res) => {
   const events = req.body.events;
 
   for (const event of events) {
