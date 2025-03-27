@@ -70,7 +70,7 @@ app.post("/webhook", line.middleware(config), async (req, res) => {
 
       await client.replyMessage(event.replyToken, {
         type: "text",
-        text: "自由記述の自己肯定感診断を始めます。3つの質問にご自由にお答えください。",
+        text: "自由記述の自己肯定感診断を始めます。7つの質問にご自由にお答えください。",
       });
 
       await client.pushMessage(userId, {
