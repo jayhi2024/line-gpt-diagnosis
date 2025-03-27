@@ -35,7 +35,15 @@ app.post("/webhook", line.middleware(config), async (req, res) => {
   const events = req.body.events;
 
   for (const event of events) {
-    // テキスト以外はスキップ
+    
+    // ✅ ここが追加ポイント！友だち追加のとき
+    if (event.type === "follow") {
+      await client.replyMessage(event.replyToken, {
+        type: "text",
+        text: "友だち追加ありがとうございます！診断を始めるには「スタート」と入力してください。",
+      });
+      continue; // ← 他の処理をスキップするために必要！
+    }
     if (event.type !== "message" || event.message.type !== "text") continue;
 
     const userId = event.source.userId;
