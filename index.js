@@ -96,10 +96,10 @@ app.post("/webhook", line.middleware(config), async (req, res) => {
         messages: [
           {
             role: "system",
-            content: "この文章から、自己肯定感の高さを1〜5点で評価してください。数字（1〜5）のみを返してください。",
-          },
-          {
-            role: "user",
+      content: "以下の文章が、実質的に『答えがない』『わからない』と判断される場合は「スキップ」と返してください。それ以外は自己肯定感の高さを1〜5点で評価し、数字（1〜5）のみを返してください。",
+    },
+    {
+      role: "user",
             content: userText,
           },
         ],
