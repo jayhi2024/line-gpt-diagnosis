@@ -20,9 +20,13 @@ const openai = new OpenAIApi(
 
 // 診断の質問（自由記述）
 const freeQuestions = [
-  "① 最近、心がざわついた出来事について教えてください。",
-  "② 誰かと比べて落ち込んだ経験があれば教えてください。",
-  "③ 自分自身に誇りを感じた瞬間があれば教えてください。",
+  "① 最近「自分に自信が持てなかった」と感じた出来事があれば教えてください。",
+  "② SNSや周囲の人と比べて落ち込んだ経験があれば教えてください。",
+  "③ 誰にも言っていないけど、実は少し誇らしかったことがあれば教えてください。",
+  "④ 「もっとこうすればよかった」と自分を責めたことが最近あれば教えてください。",
+  "⑤ 最近、誰かに助けられたり、優しくされた出来事があれば教えてください。",
+  "⑥ 「これが自分らしさかも」と思えた瞬間があれば教えてください。",
+  "⑦ 今のあなたが、本当はもっと大切にしたいと思っている自分の部分があれば教えてください。",
 ];
 
 const sessions = {};
@@ -100,7 +104,8 @@ app.post("/webhook", line.middleware(config), async (req, res) => {
           text: freeQuestions[session.step],
         });
       } else {
-        const level = Math.min(10, Math.max(1, Math.floor((session.freeScore / 15) * 10)));
+        const level = Math.min(10, Math.max(1, Math.floor((session.freeScore / 35) * 10)));
+
         await client.replyMessage(event.replyToken, {
           type: "text",
           text: `診断完了！あなたの自己肯定感レベルは10段階中「レベル${level}」です。\n\n再診断したい場合は「再診断」と入力してください。`,
