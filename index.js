@@ -90,6 +90,8 @@ app.post("/webhook", line.middleware(config), async (req, res) => {
         ],
       });
 
+      console.log("GPTからの返答:", gptReply.data.choices[0].message.content);
+      
       const content = gptReply.data.choices[0].message.content.trim();
       const score = parseInt(content.match(/\d+/)?.[0] || "0", 10);
       session.freeScore += score;
