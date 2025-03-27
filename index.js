@@ -83,6 +83,14 @@ app.post("/webhook", line.middleware(config), async (req, res) => {
     const session = sessions[userId];
 
     try {
+  if (userText.length < 100) {
+    await client.replyMessage(event.replyToken, {
+      type: "text",
+      text: "ありがとうございます！よければ、もう少し具体的に教えていただけますか？\n（体験や気持ちなど、自由な形で大丈夫です）",
+    });
+    return; // GPTへ送信しないで終了
+  }
+      
       const gptReply = await openai.createChatCompletion({
         model: "gpt-3.5-turbo",
         messages: [
