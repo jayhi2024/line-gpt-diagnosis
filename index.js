@@ -18,7 +18,6 @@ const openai = new OpenAIApi(
   })
 );
 
-// 診断の質問（自由記述）
 const freeQuestions = [
   "① 最近「自分に自信が持てなかった」と感じた出来事があれば教えてください。",
   "② SNSや周囲の人と比べて落ち込んだ経験があれば教えてください。",
@@ -35,21 +34,20 @@ app.post("/webhook", line.middleware(config), async (req, res) => {
   const events = req.body.events;
 
   for (const event of events) {
-    
-    // ✅ ここが追加ポイント！友だち追加のとき
     if (event.type === "follow") {
       await client.replyMessage(event.replyToken, {
         type: "text",
         text: "友だち追加ありがとうございます！診断を始めるには「スタート」と入力してください。",
       });
-      continue; // ← 他の処理をスキップするために必要！
+      continue;
     }
+
     if (event.type !== "message" || event.message.type !== "text") continue;
 
     const userId = event.source.userId;
     const userText = event.message.text.trim();
 
-    // ✅ 「再診断」コマンド処理
+    // 再診断コマンド
     if (userText === "再診断") {
       delete sessions[userId];
       sessions[userId] = { step: 0, freeScore: 0 };
@@ -64,7 +62,7 @@ app.post("/webhook", line.middleware(config), async (req, res) => {
       continue;
     }
 
-    // ✅ 初回スタート
+    // 初回スタート
     if (!sessions[userId]) {
       sessions[userId] = { step: 0, freeScore: 0 };
 
@@ -83,23 +81,15 @@ app.post("/webhook", line.middleware(config), async (req, res) => {
     const session = sessions[userId];
 
     try {
-  if (userText.length < 100) {
-    await client.replyMessage(event.replyToken, {
-      type: "text",
-      text: "ありがとうございます！よければ、もう少し具体的に教えていただけますか？\n（体験や気持ちなど、自由な形で大丈夫です）",
-    });
-    return; // GPTへ送信しないで終了
-  }
-      
       const gptReply = await openai.createChatCompletion({
         model: "gpt-3.5-turbo",
         messages: [
           {
             role: "system",
-      content: "以下の文章が、実質的に『とくにない』『あまりない』など『答えがない』場合や、『わからない』と判断される場合は「スキップ」と返してください。それ以外は自己肯定感の高さを1〜5点で評価し、数字（1〜5）のみを返してください。",
-    },
-    {
-      role: "user",
+            content: "以下の文章が、実質的に『とくにない』『あまりない』『思いつかない』『わからない』など答えになっていない場合は「スキップ」と返してください。それ以外は自己肯定感の高さを1〜5点で評価し、数字（1〜5）のみを返してください。",
+          },
+          {
+            role: "user",
             content: userText,
           },
         ],
@@ -108,28 +98,35 @@ app.post("/webhook", line.middleware(config), async (req, res) => {
       const content = gptReply.data.choices[0].message.content.trim();
       console.log("GPTからの返答:", content);
 
-if (content.includes("スキップ")) {
-  session.step++;
+      // GPTが「スキップ」と判定した場合
+      if (content.includes("スキップ")) {
+        session.step++;
+        if (session.step < freeQuestions.length) {
+          await client.replyMessage(event.replyToken, {
+            type: "text",
+            text: freeQuestions[session.step],
+          });
+        } else {
+          const level = Math.min(10, Math.max(1, Math.floor((session.freeScore / 35) * 10)));
+          await client.replyMessage(event.replyToken, {
+            type: "text",
+            text: `診断完了！あなたの自己肯定感レベルは10段階中「レベル${level}」です。\n\n再診断したい場合は「再診断」と入力してください。`,
+          });
+        }
+        return;
+      }
 
-  if (session.step < freeQuestions.length) {
-    await client.replyMessage(event.replyToken, {
-      type: "text",
-      text: freeQuestions[session.step],
-    });
-  } else {
-    const level = Math.min(10, Math.max(1, Math.floor((session.freeScore / 35) * 10)));
-    await client.replyMessage(event.replyToken, {
-      type: "text",
-      text: `診断完了！あなたの自己肯定感レベルは10段階中「レベル${level}」です。\n\n再診断したい場合は「再診断」と入力してください。`,
-    });
-  }
-
-  return; // スコア処理せず終了
-}
+      // スキップでないが、内容が薄い場合
+      if (userText.length < 100) {
+        await client.replyMessage(event.replyToken, {
+          type: "text",
+          text: "ありがとうございます！よければ、もう少し具体的に教えていただけますか？\n（体験や気持ちなど、自由な形で大丈夫です）",
+        });
+        return;
+      }
 
       const match = content.match(/\d+/);
       const score = match ? parseInt(match[0]) : 0;
-
       session.freeScore += score;
       session.step++;
 
@@ -140,15 +137,10 @@ if (content.includes("スキップ")) {
         });
       } else {
         const level = Math.min(10, Math.max(1, Math.floor((session.freeScore / 35) * 10)));
-
         await client.replyMessage(event.replyToken, {
           type: "text",
           text: `診断完了！あなたの自己肯定感レベルは10段階中「レベル${level}」です。\n\n再診断したい場合は「再診断」と入力してください。`,
         });
-
-        // セッション保持したまま（繰り返し防止）
-        // セッション削除したい場合は下記を使ってください：
-        // delete sessions[userId];
       }
 
     } catch (error) {
