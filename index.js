@@ -1,3 +1,26 @@
+if (event.type === "message") {
+  const userId = event.source.userId;
+
+  // ここに追加！！
+  if (event.message.text === "再診断") {
+    delete sessions[userId];
+    await client.replyMessage(event.replyToken, {
+      type: "text",
+      text: "診断をリセットしました。再度、質問を開始します。",
+    });
+    await client.pushMessage(userId, createQuestionMessage(0));
+    sessions[userId] = {
+      step: 0,
+      score: 0,
+      freeStep: 0,
+      freeScore: 0,
+      phase: "select",
+      completed: false,
+    };
+    return;
+  }
+
+
 const express = require("express");
 const { Configuration, OpenAIApi } = require("openai");
 const line = require("@line/bot-sdk");
