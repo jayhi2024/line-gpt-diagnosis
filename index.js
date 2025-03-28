@@ -1,30 +1,36 @@
 const express = require("express");
 const line = require("@line/bot-sdk");
+const { Configuration, OpenAIApi } = require("openai");
 require("dotenv").config();
 
 const app = express();
 app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf } }));
 
-// LINE botの設定
+// LINE設定
 const config = {
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
   channelSecret: process.env.LINE_CHANNEL_SECRET,
 };
 const client = new line.Client(config);
 
-// ユーザーごとの会話状態を保存するオブジェクト
+// OpenAI設定
+const openai = new OpenAIApi(
+  new Configuration({
+    apiKey: process.env.OPENAI_API_KEY,
+  })
+);
+
+// ユーザーごとの会話ステップを保持
 const sessions = {};
 
-// LINE Webhookエンドポイント
 app.post("/webhook", line.middleware(config), async (req, res) => {
   const events = req.body.events;
 
   for (const event of events) {
     if (!event.source || !event.source.userId) continue;
-
     const userId = event.source.userId;
 
-    // 友だち追加時の対応
+    // 友だち追加時
     if (event.type === "follow") {
       sessions[userId] = { step: 0 };
 
@@ -35,12 +41,12 @@ app.post("/webhook", line.middleware(config), async (req, res) => {
       continue;
     }
 
-    // テキストメッセージ以外は無視
+    // テキスト以外のメッセージは無視
     if (event.type !== "message" || event.message.type !== "text") continue;
 
     const userText = event.message.text.trim();
 
-    // セッションがなければ新規作成
+    // セッションがなければ作成
     if (!sessions[userId]) {
       sessions[userId] = { step: 0 };
     }
@@ -48,7 +54,7 @@ app.post("/webhook", line.middleware(config), async (req, res) => {
     const session = sessions[userId];
 
     if (session.step === 0) {
-      // ステップ1：「けしからん！」→次の質問
+      // ステップ0：最初の返答に対して
       session.step++;
       await client.replyMessage(event.replyToken, {
         type: "text",
@@ -62,7 +68,7 @@ app.post("/webhook", line.middleware(config), async (req, res) => {
     }
 
     if (session.step === 1) {
-      // ステップ2：ユーモアな返し＋勧誘
+      // ステップ1：2回目の返事に対して
       session.step++;
       await client.replyMessage(event.replyToken, {
         type: "text",
@@ -71,11 +77,35 @@ app.post("/webhook", line.middleware(config), async (req, res) => {
       continue;
     }
 
-    // ステップ3以降のデフォルト対応（必要に応じて拡張可能）
-    await client.replyMessage(event.replyToken, {
-      type: "text",
-      text: "あなたはもう、立派なほのぼのサロン予備軍です🌿",
-    });
+    // ステップ2以降：GPTで自動返答
+    try {
+      const gptReply = await openai.createChatCompletion({
+        model: "gpt-3.5-turbo",
+        messages: [
+          {
+            role: "system",
+            content: "あなたは『ほのぼのサロン』の主です。やさしく、ちょっとユーモラスなキャラクターとして、ユーザーに寄り添った会話をしてください。ほのぼのサロンへの勧誘も自然に入れてください。",
+          },
+          {
+            role: "user",
+            content: userText,
+          },
+        ],
+      });
+
+      const replyText = gptReply.data.choices[0].message.content.trim();
+
+      await client.replyMessage(event.replyToken, {
+        type: "text",
+        text: replyText,
+      });
+    } catch (err) {
+      console.error("GPTエラー:", err);
+      await client.replyMessage(event.replyToken, {
+        type: "text",
+        text: "ほのぼのの神がちょっとお昼寝中でした…もう一度話しかけてみてください🌞",
+      });
+    }
   }
 
   res.status(200).send("OK");
